@@ -75,7 +75,10 @@
 #define BUFFER_INDEX_SHARED_ADDRESS_LSB   ((UCHAR)0x03)
 #define BUFFER_INDEX_SHARED_ADDRESS_MSB   ((UCHAR)0x04)
 #define BUFFER_INDEX_SHARED_DATA_TYPE     ((UCHAR)0x05)
+#define BUFFER_INDEX_EXT_DATA_FLAGS       ((UCHAR)(BUFFER_INDEX_MESG_DATA + 8))
+#define BUFFER_INDEX_EXT_DATA             ((UCHAR)(BUFFER_INDEX_EXT_DATA_FLAGS + 1))
 
+   
 //////////////////////////////////////////////
 // Message ID's
 //////////////////////////////////////////////
@@ -86,7 +89,13 @@
 #define MESG_VERSION_ID                   ((UCHAR)0x3E)  ///< protocol library version
 #define MESG_RESPONSE_EVENT_ID            ((UCHAR)0x40)
 #define MESG_RESTART_ID                   ((UCHAR)0x6F)
-
+#define MESG_ENABLE_EXTENDED_ID           ((UCHAR)0x66)
+#define MESG_LIB_CONFIG_ID                ((UCHAR)0x6E)
+#define LIB_CONFIG_CHANNEL_ID_FLAG        ((UCHAR)0x80)
+#define LIB_CONFIG_RSSI_FLAG              ((UCHAR)0x40)
+#define LIB_CONFIG_RX_TIMESTAMP_FLAG      ((UCHAR)0x20)
+#define LIB_CONFIG_DISABLE                ((UCHAR)0x00)
+   
 #define MESG_UNASSIGN_CHANNEL_ID          ((UCHAR)0x41)
 #define MESG_ASSIGN_CHANNEL_ID            ((UCHAR)0x42)
 #define MESG_CHANNEL_MESG_PERIOD_ID       ((UCHAR)0x43)
@@ -120,6 +129,8 @@
 #define MESG_RESPONSE_EVENT_SIZE          ((UCHAR)3)
 #define MESG_CHANNEL_STATUS_SIZE          ((UCHAR)2)
 #define MESG_VERSION_SIZE                 ((UCHAR)10)
+#define MESG_ENABLE_EXTENDED_SIZE         ((UCHAR)2)
+#define MESG_LIB_CONFIG_SIZE              ((UCHAR)2)
 
 #define MESG_UNASSIGN_CHANNEL_SIZE        ((UCHAR)1)
 #define MESG_ASSIGN_CHANNEL_SIZE          ((UCHAR)3)
@@ -140,5 +151,9 @@
 #define MESG_CAPABILITIES_SIZE            ((UCHAR)4)
 
 #define MESG_DATA_SIZE                    ((UCHAR)9)
-
+#define EXT_DATA_CHANNEL_ID_SIZE          ((UCHAR)4)
+#define EXT_DATA_RSSI_SIZE                ((UCHAR)3)
+#define EXT_DATA_TIMESTAMP_SIZE           ((UCHAR)2)
+   
+   
 #endif // !ANTMESSAGE_H
