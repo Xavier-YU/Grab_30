@@ -28,7 +28,14 @@ Type Definitions
 /**********************************************************************************************************************
 Constants / Definitions
 **********************************************************************************************************************/
-
+/*the definition of ANT_DATA*/
+#define WHO_SEND_MESSAGE      (u8)0
+#define CONTROL               (u8)1
+#define RESPONSE              (u8)2
+#define CURRENT_PLAYER        (u8)3
+#define CURRENT_NUMBER        (u8)4
+#define WINNER                (u8)5
+#define DISCONNECTION_PLAYER  (u8)6
 
 /**********************************************************************************************************************
 Function Declarations
@@ -57,7 +64,8 @@ State Machine Declarations
 static void UserAppSM_Idle(void);    
 static void UserAppSM_IdentificationInitialize(void);
 static void UserAppSM_Error(void);         
-static void UserAppSM_FailedInit(void);        
+static void UserAppSM_FailedInit(void);  
+static void UserAppSM_WaitOpenChannel(void);
 static void UserAppSM_OpenChannel(void);
 static void UserAppSM_AssignChannel(void);
 static void UserAppSM_WaitForPairing(void);
