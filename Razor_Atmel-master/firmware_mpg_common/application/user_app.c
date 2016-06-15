@@ -53,6 +53,10 @@ extern volatile u32 G_u32SystemTime1ms;                /* From board-specific so
 extern volatile u32 G_u32SystemTime1s;                 /* From board-specific source file */
 
 
+
+extern u32 G_u32AntApiCurrentDataTimeStamp;                       /* From ant_api.c */
+extern AntApplicationMessageType G_eAntApiCurrentMessageClass;    /* From ant_api.c */
+extern u8 G_au8AntApiCurrentData[ANT_APPLICATION_MESSAGE_BYTES];  /* From ant_api.c */
 /***********************************************************************************************************************
 Global variable definitions with scope limited to this local application.
 Variable names shall start with "UserApp_" and be declared as static.
@@ -65,7 +69,9 @@ static u32 UserApp_u32Timeout;                      /* Timeout counter used acro
  static u8  UserApp_u8ModeNumber;                    
  static u8  UserApp_u8ChannelNumber;                 
  static u8  UserApp_u8DeviceIdHigh;                  
- static u8  UserApp_u8DeviceIdLow;                   
+ static u8  UserApp_u8DeviceIdLow; 
+ 
+ static u8  UserApp_au8GameSituationMessage[ANT_APPLICATION_MESSAGE_BYTES] = {0x00,0x80,0x80,0x80,0x80,0x80,0x80,0x80};
 
 /**********************************************************************************************************************
 Function Definitions
@@ -164,10 +170,13 @@ static void UserAppSM_IdentificationInitialize(void)
   static u8 u8DebugInputState = 0;
   
   static u8 u8CounterFor5ms = 0;
+  static u16  UserApp_u16DeviceIdInt;  
   
   
   AntAssignChannelInfoType sChannelInfo;
   u8CounterFor5ms++;
+  
+  /*print some messages on the Tera Term to remind the user of what to do*/
   if(u8DebugInputState == 0)
   {
     DebugLineFeed();
@@ -196,6 +205,12 @@ static void UserAppSM_IdentificationInitialize(void)
   {
     u8DebugInputState = 0;
     u8CounterFor5ms = 0;
+    UserApp_u8DeviceIdHigh=UserApp_u16DeviceIdInt/256;
+    UserApp_u8DeviceIdLow=UserApp_u16DeviceIdInt%256;
+    if(UserApp_u8ModeNumber == 0)
+    {
+      DebugPrintf("\n\rplease press 4 buttons to assign the channels\n\r");
+    }
     UserApp_StateMachine = UserAppSM_AssignChannel;
   }
  
@@ -207,6 +222,8 @@ static void UserAppSM_IdentificationInitialize(void)
     {
       switch(u8DebugInputState)
       {
+        
+        /*get the Mode*/
         case 1:
           if(au8DebugInputBuffer[0] == '0' || au8DebugInputBuffer[0] == '1')
           {     
@@ -225,6 +242,8 @@ static void UserAppSM_IdentificationInitialize(void)
             DebugLineFeed();
           }
           break;
+          
+        /*get channel number*/  
         case 3:
           if(au8DebugInputBuffer[0] >= 0x30 && au8DebugInputBuffer[0] <= 0x33)
           {
@@ -238,10 +257,12 @@ static void UserAppSM_IdentificationInitialize(void)
             DebugLineFeed();
           }
           break;
+          
+        /*get device ID*/
         case 5:
           if(au8DebugInputBuffer[0] >= 0x30 && au8DebugInputBuffer[0] <= 0x39)
           {
-            UserApp_u8DeviceIdHigh = au8DebugInputBuffer[0] - 0x30;
+            UserApp_u16DeviceIdInt = au8DebugInputBuffer[0] - 0x30;
             u8DebugInputState++;                    
           }
           else
@@ -254,7 +275,7 @@ static void UserAppSM_IdentificationInitialize(void)
         case 6:          
           if(au8DebugInputBuffer[0] >= 0x30 && au8DebugInputBuffer[0] <= 0x39)
           {
-            UserApp_u8DeviceIdHigh = UserApp_u8DeviceIdHigh * 10 + au8DebugInputBuffer[0] - 0x30;
+            UserApp_u16DeviceIdInt = UserApp_u16DeviceIdInt * 10 + au8DebugInputBuffer[0] - 0x30;
             u8DebugInputState++;                    
           }
           else
@@ -268,7 +289,7 @@ static void UserAppSM_IdentificationInitialize(void)
         case 7:
           if(au8DebugInputBuffer[0] >= 0x30 && au8DebugInputBuffer[0] <= 0x39)
           {
-            UserApp_u8DeviceIdLow = au8DebugInputBuffer[0] - 0x30;
+            UserApp_u16DeviceIdInt = UserApp_u16DeviceIdInt * 10 + au8DebugInputBuffer[0] - 0x30;
             u8DebugInputState++;                    
           }
           else
@@ -282,7 +303,7 @@ static void UserAppSM_IdentificationInitialize(void)
         case 8:          
           if(au8DebugInputBuffer[0] >= 0x30 && au8DebugInputBuffer[0] <= 0x39)
           {
-            UserApp_u8DeviceIdLow = UserApp_u8DeviceIdLow * 10 + au8DebugInputBuffer[0] - 0x30;
+            UserApp_u16DeviceIdInt = UserApp_u16DeviceIdInt * 10 + au8DebugInputBuffer[0] - 0x30;
             u8DebugInputState++;                    
           }
           else
@@ -300,18 +321,279 @@ static void UserAppSM_IdentificationInitialize(void)
   }
 } /* end UserAppSM_IdentificationInitialize() */
 
+
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* assign ANT */
 static void UserAppSM_AssignChannel(void)
 {
+   static u8 u8AllAssignIndex = 0;
+   AntAssignChannelInfoType sChannelInfo;
+   if(UserApp_u8ModeNumber == 0)
+    {
+      /*if BUTTON0 is pressed , assign Channel0*/
+      if(WasButtonPressed(BUTTON0))
+      {
+        ButtonAcknowledge(BUTTON0);
+        if(AntRadioStatusChannel(0) == ANT_UNCONFIGURED)
+        {
+          sChannelInfo.AntChannel = 0;
+          sChannelInfo.AntChannelType = CHANNEL_TYPE_MASTER;
+          sChannelInfo.AntChannelPeriodHi = 0x00;
+          sChannelInfo.AntChannelPeriodLo = 0x21;
+          
+          sChannelInfo.AntDeviceIdHi = UserApp_u8DeviceIdHigh;
+          sChannelInfo.AntDeviceIdLo = UserApp_u8DeviceIdLow;
+          sChannelInfo.AntDeviceType = ANT_DEVICE_TYPE_DEFAULT;
+          sChannelInfo.AntTransmissionType = ANT_TRANSMISSION_TYPE_DEFAULT;
+          
+          sChannelInfo.AntFrequency = 50;
+          sChannelInfo.AntTxPower = ANT_TX_POWER_DEFAULT;
+          sChannelInfo.AntNetwork = ANT_NETWORK_DEFAULT;
+          
+          for(u8 j = 0; j < ANT_NETWORK_NUMBER_BYTES; j++)
+          {
+            sChannelInfo.AntNetworkKey[0] = ANT_DEFAULT_NETWORK_KEY;
+          }
+          if(AntAssignChannel(&sChannelInfo))
+          {
+            u8AllAssignIndex++;
+          }
+
+        }        
+        else
+        {
+          AntUnassignChannelNumber(0);
+        }  
+      }
+      
+       /*if BUTTON1 is pressed , assign Channel1*/     
+      if(WasButtonPressed(BUTTON1))
+      {
+        ButtonAcknowledge(BUTTON1);
+        if(AntRadioStatusChannel(1) == ANT_UNCONFIGURED)
+        {
+          sChannelInfo.AntChannel = 1;
+          sChannelInfo.AntChannelType = CHANNEL_TYPE_MASTER;
+          sChannelInfo.AntChannelPeriodHi = 0x00;
+          sChannelInfo.AntChannelPeriodLo = 0x21;
+          
+          sChannelInfo.AntDeviceIdHi = UserApp_u8DeviceIdHigh;
+          sChannelInfo.AntDeviceIdLo = UserApp_u8DeviceIdLow;
+          sChannelInfo.AntDeviceType = ANT_DEVICE_TYPE_DEFAULT;
+          sChannelInfo.AntTransmissionType = ANT_TRANSMISSION_TYPE_DEFAULT;
+          
+          sChannelInfo.AntFrequency = 50;
+          sChannelInfo.AntTxPower = ANT_TX_POWER_DEFAULT;
+          sChannelInfo.AntNetwork = ANT_NETWORK_DEFAULT;
+          
+          for(u8 j = 0; j < ANT_NETWORK_NUMBER_BYTES; j++)
+          {
+            sChannelInfo.AntNetworkKey[1] = ANT_DEFAULT_NETWORK_KEY;
+          }
+          if(AntAssignChannel(&sChannelInfo))
+          {
+            u8AllAssignIndex++;
+          }
+        }        
+        else
+        {
+          AntUnassignChannelNumber(1);
+        }    
+      }
+      
+      /*if BUTTON2 is pressed , assign Channel2*/
+      if(WasButtonPressed(BUTTON2))
+      {
+        ButtonAcknowledge(BUTTON2);
+        if(AntRadioStatusChannel(2) == ANT_UNCONFIGURED)
+        {
+          sChannelInfo.AntChannel = 2;
+          sChannelInfo.AntChannelType = CHANNEL_TYPE_MASTER;
+          sChannelInfo.AntChannelPeriodHi = 0x00;
+          sChannelInfo.AntChannelPeriodLo = 0x21;
+          
+          sChannelInfo.AntDeviceIdHi = UserApp_u8DeviceIdHigh;
+          sChannelInfo.AntDeviceIdLo = UserApp_u8DeviceIdLow;
+          sChannelInfo.AntDeviceType = ANT_DEVICE_TYPE_DEFAULT;
+          sChannelInfo.AntTransmissionType = ANT_TRANSMISSION_TYPE_DEFAULT;
+          
+          sChannelInfo.AntFrequency = 50;
+          sChannelInfo.AntTxPower = ANT_TX_POWER_DEFAULT;
+          sChannelInfo.AntNetwork = ANT_NETWORK_DEFAULT;
+          
+          for(u8 j = 0; j < ANT_NETWORK_NUMBER_BYTES; j++)
+          {
+            sChannelInfo.AntNetworkKey[2] = ANT_DEFAULT_NETWORK_KEY;
+          }
+          if(AntAssignChannel(&sChannelInfo))
+          {
+            u8AllAssignIndex++;
+          }
+
+        }        
+        else
+        {
+          AntUnassignChannelNumber(2);
+        }    
+      }
+ 
+      /*if BUTTON3 is pressed , assign Channel3*/
+      if(WasButtonPressed(BUTTON3))
+      {
+        ButtonAcknowledge(BUTTON3);
+        if(AntRadioStatusChannel(3) == ANT_UNCONFIGURED)
+        {
+          sChannelInfo.AntChannel = 3;
+          sChannelInfo.AntChannelType = CHANNEL_TYPE_MASTER;
+          sChannelInfo.AntChannelPeriodHi = 0x00;
+          sChannelInfo.AntChannelPeriodLo = 0x21;
+          
+          sChannelInfo.AntDeviceIdHi = UserApp_u8DeviceIdHigh;
+          sChannelInfo.AntDeviceIdLo = UserApp_u8DeviceIdLow;
+          sChannelInfo.AntDeviceType = ANT_DEVICE_TYPE_DEFAULT;
+          sChannelInfo.AntTransmissionType = ANT_TRANSMISSION_TYPE_DEFAULT;
+          
+          sChannelInfo.AntFrequency = 50;
+          sChannelInfo.AntTxPower = ANT_TX_POWER_DEFAULT;
+          sChannelInfo.AntNetwork = ANT_NETWORK_DEFAULT;
+          
+          for(u8 j = 0; j < ANT_NETWORK_NUMBER_BYTES; j++)
+          {
+            sChannelInfo.AntNetworkKey[3] = ANT_DEFAULT_NETWORK_KEY;
+          }
+          if(AntAssignChannel(&sChannelInfo))
+          {
+            u8AllAssignIndex++;
+          }
+
+        }        
+        else
+        {
+          AntUnassignChannelNumber(3);
+        }    
+      }
+    } 
+    
+    else
+    {
+      /*for a player ,it only needs to set up its own channel*/
+       if(AntRadioStatusChannel(UserApp_u8ChannelNumber) == ANT_UNCONFIGURED)
+        {
+          sChannelInfo.AntChannel = UserApp_u8ChannelNumber;
+          sChannelInfo.AntChannelType = CHANNEL_TYPE_MASTER;
+          sChannelInfo.AntChannelPeriodHi = 0x00;
+          sChannelInfo.AntChannelPeriodLo = 0x21;
+          
+          sChannelInfo.AntDeviceIdHi = UserApp_u8DeviceIdHigh;
+          sChannelInfo.AntDeviceIdLo = UserApp_u8DeviceIdLow;
+          sChannelInfo.AntDeviceType = ANT_DEVICE_TYPE_DEFAULT;
+          sChannelInfo.AntTransmissionType = ANT_TRANSMISSION_TYPE_DEFAULT;
+          
+          sChannelInfo.AntFrequency = 50;
+          sChannelInfo.AntTxPower = ANT_TX_POWER_DEFAULT;
+          sChannelInfo.AntNetwork = ANT_NETWORK_DEFAULT;
+          
+          for(u8 j = 0; j < ANT_NETWORK_NUMBER_BYTES; j++)
+          {
+            sChannelInfo.AntNetworkKey[j] = ANT_DEFAULT_NETWORK_KEY;
+          }
+          if(AntAssignChannel(&sChannelInfo))
+          {
+            u8AllAssignIndex++;
+          }
+        } 
+        else
+        {
+          AntUnassignChannelNumber(UserApp_u8ChannelNumber);
+        }      
+    }
+   
+    if(u8AllAssignIndex == 4 && UserApp_u8ModeNumber == 0||u8AllAssignIndex == 1 && UserApp_u8ModeNumber == 1 )
+    {
+      u8AllAssignIndex = 0;
+      UserApp_StateMachine = UserAppSM_WaitOpenChannel;
+    }
 } /* end UserAppSM_AssignChannel() */
 
 /*-------------------------------------------------------------------------------------------------------------------*/
-/* open ANT */
+/* wait ANT to be configured*/
+static void UserAppSM_WaitOpenChannel(void)
+{
+  if(UserApp_u8ModeNumber == 0)
+  {
+    /*referee has to wait for all 4 channels have been assigned correctly*/
+    if(AntRadioStatusChannel(0) != ANT_UNCONFIGURED && AntRadioStatusChannel(1) != ANT_UNCONFIGURED && AntRadioStatusChannel(2) != ANT_UNCONFIGURED && AntRadioStatusChannel(3) != ANT_UNCONFIGURED)    
+    {
+       UserApp_StateMachine = UserAppSM_OpenChannel;     
+    }
+  }
+  else
+  {
+    /*player need to wait for its channel has been assigned*/
+    if(AntRadioStatusChannel(UserApp_u8ChannelNumber) != ANT_UNCONFIGURED)
+    {
+       UserApp_StateMachine = UserAppSM_OpenChannel;        
+    }
+  }
+
+
+
+} /* end UserAppSM_WaitOpenChannel() */
+
+
+/*-------------------------------------------------------------------------------------------------------------------*/
+/* open all channels*/
 static void UserAppSM_OpenChannel(void)
 {
+  static bool bOpenFlag = TRUE;
+  
+  if(AntReadAppMessageBuffer())
+  {
+  }
+  
+  
+  if(UserApp_u8ModeNumber == 0)
+  {
+    if(bOpenFlag)
+    {
+      /*referee should open all four channels*/
+      for(u8 i=0;i<4;i++)
+      {
+        if(AntRadioStatusChannel(i) == ANT_CLOSED)
+        {
+          AntOpenChannelNumber(i);
+        }
+      }
+      bOpenFlag = FALSE;
+    }
+      
+      
+    if(AntRadioStatusChannel(0) == ANT_OPEN && AntRadioStatusChannel(1) == ANT_OPEN && AntRadioStatusChannel(2) == ANT_OPEN&&AntRadioStatusChannel(3) == ANT_OPEN)
+    {
+      bOpenFlag = TRUE;
+      UserApp_StateMachine = UserAppSM_WaitForPairing;
+    }
+  }
+  else
+  {
+    if(bOpenFlag)
+    {
+      /*player has to open its own channel*/
+      if(AntRadioStatusChannel(UserApp_u8ChannelNumber) == ANT_CLOSED)
+      {
+        AntOpenChannelNumber(UserApp_u8ChannelNumber);
+      }
+      bOpenFlag = FALSE;
+    }
+      
+      
+    if(AntRadioStatusChannel(UserApp_u8ChannelNumber) == ANT_OPEN)
+    {
+      bOpenFlag = TRUE;
+      UserApp_StateMachine = UserAppSM_WaitGameStart;
+    }
+  }
 } /* end UserAppSM_OpenChannel() */
-
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* pair to all players */
