@@ -54,13 +54,19 @@ void UserAppRunActiveState(void);
 /***********************************************************************************************************************
 State Machine Declarations
 ***********************************************************************************************************************/
-static void UserAppSM_ChannelSetup(void);
 static void UserAppSM_Idle(void);    
-
+static void UserAppSM_IdentificationInitialize(void);
 static void UserAppSM_Error(void);         
 static void UserAppSM_FailedInit(void);        
-
-
+static void UserAppSM_OpenChannel(void);
+static void UserAppSM_AssignChannel(void);
+static void UserAppSM_WaitForPairing(void);
+static void UserAppSM_LaunchGame(void);
+static void UserAppSM_EndGame(void);
+static void UserAppSM_WaitGameStart(void);
+static void UserAppSM_MyTurn(void);
+static void UserAppSM_Congratulation(void);
+     
 #endif /* __USER_APP_H */
 
 
