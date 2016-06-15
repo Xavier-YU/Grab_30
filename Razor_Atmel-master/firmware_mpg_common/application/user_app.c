@@ -164,6 +164,7 @@ static void UserAppSM_IdentificationInitialize(void)
   static u8 u8DebugInputState = 0;
   
   static u8 u8CounterFor5ms = 0;
+  static u16  UserApp_u16DeviceIdInt;  
   
   
   AntAssignChannelInfoType sChannelInfo;
@@ -196,6 +197,8 @@ static void UserAppSM_IdentificationInitialize(void)
   {
     u8DebugInputState = 0;
     u8CounterFor5ms = 0;
+    UserApp_u8DeviceIdHigh=UserApp_u16DeviceIdInt/256;
+    UserApp_u8DeviceIdLow=UserApp_u16DeviceIdInt%256;
     UserApp_StateMachine = UserAppSM_AssignChannel;
   }
  
@@ -241,7 +244,7 @@ static void UserAppSM_IdentificationInitialize(void)
         case 5:
           if(au8DebugInputBuffer[0] >= 0x30 && au8DebugInputBuffer[0] <= 0x39)
           {
-            UserApp_u8DeviceIdHigh = au8DebugInputBuffer[0] - 0x30;
+            UserApp_u16DeviceIdInt = au8DebugInputBuffer[0] - 0x30;
             u8DebugInputState++;                    
           }
           else
@@ -254,7 +257,7 @@ static void UserAppSM_IdentificationInitialize(void)
         case 6:          
           if(au8DebugInputBuffer[0] >= 0x30 && au8DebugInputBuffer[0] <= 0x39)
           {
-            UserApp_u8DeviceIdHigh = UserApp_u8DeviceIdHigh * 10 + au8DebugInputBuffer[0] - 0x30;
+            UserApp_u16DeviceIdInt = UserApp_u16DeviceIdInt * 10 + au8DebugInputBuffer[0] - 0x30;
             u8DebugInputState++;                    
           }
           else
@@ -268,7 +271,7 @@ static void UserAppSM_IdentificationInitialize(void)
         case 7:
           if(au8DebugInputBuffer[0] >= 0x30 && au8DebugInputBuffer[0] <= 0x39)
           {
-            UserApp_u8DeviceIdLow = au8DebugInputBuffer[0] - 0x30;
+            UserApp_u16DeviceIdInt = UserApp_u16DeviceIdInt * 10 + au8DebugInputBuffer[0] - 0x30;
             u8DebugInputState++;                    
           }
           else
@@ -282,7 +285,7 @@ static void UserAppSM_IdentificationInitialize(void)
         case 8:          
           if(au8DebugInputBuffer[0] >= 0x30 && au8DebugInputBuffer[0] <= 0x39)
           {
-            UserApp_u8DeviceIdLow = UserApp_u8DeviceIdLow * 10 + au8DebugInputBuffer[0] - 0x30;
+            UserApp_u16DeviceIdInt = UserApp_u16DeviceIdInt * 10 + au8DebugInputBuffer[0] - 0x30;
             u8DebugInputState++;                    
           }
           else
