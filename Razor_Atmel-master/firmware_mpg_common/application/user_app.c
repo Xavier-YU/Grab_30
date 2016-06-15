@@ -60,6 +60,12 @@ Variable names shall start with "UserApp_" and be declared as static.
 static fnCode_type UserApp_StateMachine;            /* The state machine function pointer */
 static u32 UserApp_u32Timeout;                      /* Timeout counter used across states */
 
+ static u32 UserApp_u32UserAppFlags;                      
+ static u8  UserApp_u8WinnerPlayer=9;                  
+ static u8  UserApp_u8ModeNumber;                    
+ static u8  UserApp_u8ChannelNumber;                 
+ static u8  UserApp_u8DeviceIdHigh;                  
+ static u8  UserApp_u8DeviceIdLow;                   
 
 /**********************************************************************************************************************
 Function Definitions
@@ -88,24 +94,18 @@ Promises:
 */
 void UserAppInitialize(void)
 {
-  LCDCommand(LCD_CLEAR_CMD);
-  LCDMessage(LINE1_START_ADDR, "ANT MULTICHAN DEMO");
-  LCDMessage(LINE2_START_ADDR, "CH0   CH1   CH2  OPN");
-  UserApp_StateMachine = UserAppSM_Idle;
-//  UserApp_StateMachine = UserAppSM_ChannelSetup;
-
+  
   /* If good initialization, set state to Idle */
   if( 1 )
   {
-    DebugPrintf("User app ready\n\r");
+    UserApp_StateMachine = UserAppSM_IdentificationInitialize;
   }
   else
   {
     /* The task isn't properly initialized, so shut it down and don't run */
     UserApp_StateMachine = UserAppSM_FailedInit;
-    DebugPrintf("User app setup failed\n\r");
   }
-  
+
 } /* end UserAppInitialize() */
 
 
@@ -139,191 +139,8 @@ void UserAppRunActiveState(void)
 State Machine Function Definitions
 **********************************************************************************************************************/
 
-/*-------------------------------------------------------------------------------------------------------------------*/
-/* Wait for a message to be queued */
-static void UserAppSM_ChannelSetup(void)
-{
-  bool bSetupOk = TRUE;
-  
-  AntAssignChannelInfoType sChannelInfo;
-  
-  /* Setup channel 0 */
-  sChannelInfo.AntChannel = 0;
-  sChannelInfo.AntChannelType = CHANNEL_TYPE_MASTER;
-  sChannelInfo.AntChannelPeriodHi = ANT_CHANNEL_PERIOD_HI_DEFAULT;
-  sChannelInfo.AntChannelPeriodLo = ANT_CHANNEL_PERIOD_LO_DEFAULT;
-  
-  sChannelInfo.AntDeviceIdHi = 0x00;
-  sChannelInfo.AntDeviceIdLo = 0x03;
-  sChannelInfo.AntDeviceType = ANT_DEVICE_TYPE_DEFAULT;
-  sChannelInfo.AntTransmissionType = ANT_TRANSMISSION_TYPE_DEFAULT;
-  
-  sChannelInfo.AntFrequency = ANT_FREQUENCY_DEFAULT;
-  sChannelInfo.AntTxPower = ANT_TX_POWER_DEFAULT;
-  
-  sChannelInfo.AntNetwork = ANT_NETWORK_DEFAULT;
-  for(u8 i = 0; i < ANT_NETWORK_NUMBER_BYTES; i++)
-  {
-    sChannelInfo.AntNetworkKey[i] = ANT_DEFAULT_NETWORK_KEY;
-  }
-    
-  if(!AntAssignChannel(&sChannelInfo))
-  {
-    bSetupOk = FALSE;
-  }
-
-  if( bSetupOk )
-  {
-    UserApp_StateMachine = UserAppSM_Idle;
-    DebugPrintf("User app ready\n\r");
-  }
-  else
-  {
-    /* The task isn't properly initialized, so shut it down and don't run */
-    UserApp_StateMachine = UserAppSM_FailedInit;
-    DebugPrintf("User app setup failed\n\r");
-  }
-  
-} /* end UserAppSM_ChannelSetup */
 
 
-/*-------------------------------------------------------------------------------------------------------------------*/
-/* Process Idle functions */
-static void UserAppSM_Idle(void)
-{
-  AntAssignChannelInfoType sChannelInfo;
-
-  if(AntReadAppMessageBuffer())
-  {
-  }
-  
-  if(WasButtonPressed(BUTTON0))
-  {
-    ButtonAcknowledge(BUTTON0);
-    if(AntRadioStatusChannel(0) == ANT_UNCONFIGURED)
-    {
-      /* Setup channel 0 */
-      sChannelInfo.AntChannel = 0;
-      sChannelInfo.AntChannelType = CHANNEL_TYPE_MASTER;
-      sChannelInfo.AntChannelPeriodHi = ANT_CHANNEL_PERIOD_HI_DEFAULT;
-      sChannelInfo.AntChannelPeriodLo = ANT_CHANNEL_PERIOD_LO_DEFAULT;
-      
-      sChannelInfo.AntDeviceIdHi = 0x00;
-      sChannelInfo.AntDeviceIdLo = 0x01;
-      sChannelInfo.AntDeviceType = ANT_DEVICE_TYPE_DEFAULT;
-      sChannelInfo.AntTransmissionType = ANT_TRANSMISSION_TYPE_DEFAULT;
-      
-      sChannelInfo.AntFrequency = ANT_FREQUENCY_DEFAULT;
-      sChannelInfo.AntTxPower = ANT_TX_POWER_DEFAULT;
-      
-      sChannelInfo.AntNetwork = ANT_NETWORK_DEFAULT;
-      for(u8 i = 0; i < ANT_NETWORK_NUMBER_BYTES; i++)
-      {
-        sChannelInfo.AntNetworkKey[i] = ANT_DEFAULT_NETWORK_KEY;
-      }
-      
-      AntAssignChannel(&sChannelInfo);
-    }
-    else
-    {
-      AntUnassignChannelNumber(0);
-    }
-  } /* end BUTTON0 */
-    
-  if(WasButtonPressed(BUTTON1))
-  {
-    ButtonAcknowledge(BUTTON1);
-    if(AntRadioStatusChannel(1) == ANT_UNCONFIGURED)
-    {
-      /* Setup channel 1 */
-      sChannelInfo.AntChannel = 1;
-      sChannelInfo.AntChannelType = CHANNEL_TYPE_MASTER;
-      sChannelInfo.AntChannelPeriodHi = ANT_CHANNEL_PERIOD_HI_DEFAULT;
-      sChannelInfo.AntChannelPeriodLo = ANT_CHANNEL_PERIOD_LO_DEFAULT;
-      
-      sChannelInfo.AntDeviceIdHi = 0x11;
-      sChannelInfo.AntDeviceIdLo = 0x11;
-      sChannelInfo.AntDeviceType = ANT_DEVICE_TYPE_DEFAULT;
-      sChannelInfo.AntTransmissionType = ANT_TRANSMISSION_TYPE_DEFAULT;
-      
-      sChannelInfo.AntFrequency = ANT_FREQUENCY_DEFAULT;
-      sChannelInfo.AntTxPower = ANT_TX_POWER_DEFAULT;
-      
-      sChannelInfo.AntNetwork = ANT_NETWORK_DEFAULT;
-      for(u8 i = 0; i < ANT_NETWORK_NUMBER_BYTES; i++)
-      {
-        sChannelInfo.AntNetworkKey[i] = ANT_DEFAULT_NETWORK_KEY;
-      }
-      
-      AntAssignChannel(&sChannelInfo);
-    }
-    else
-    {
-      AntUnassignChannelNumber(1);
-    }
-  } /* end BUTTON1 */
-
-  if(WasButtonPressed(BUTTON2))
-  {
-    ButtonAcknowledge(BUTTON2);
-    if(AntRadioStatusChannel(2) == ANT_UNCONFIGURED)
-    {
-      /* Setup channel 0 */
-      sChannelInfo.AntChannel = 2;
-      sChannelInfo.AntChannelType = CHANNEL_TYPE_MASTER;
-      sChannelInfo.AntChannelPeriodHi = ANT_CHANNEL_PERIOD_HI_DEFAULT;
-      sChannelInfo.AntChannelPeriodLo = ANT_CHANNEL_PERIOD_LO_DEFAULT;
-      
-      sChannelInfo.AntDeviceIdHi = 0x22;
-      sChannelInfo.AntDeviceIdLo = 0x22;
-      sChannelInfo.AntDeviceType = ANT_DEVICE_TYPE_DEFAULT;
-      sChannelInfo.AntTransmissionType = ANT_TRANSMISSION_TYPE_DEFAULT;
-      
-      sChannelInfo.AntFrequency = ANT_FREQUENCY_DEFAULT;
-      sChannelInfo.AntTxPower = ANT_TX_POWER_DEFAULT;
-      
-      sChannelInfo.AntNetwork = ANT_NETWORK_DEFAULT;
-      for(u8 i = 0; i < ANT_NETWORK_NUMBER_BYTES; i++)
-      {
-        sChannelInfo.AntNetworkKey[i] = ANT_DEFAULT_NETWORK_KEY;
-      }
-      
-      AntAssignChannel(&sChannelInfo);
-    }
-    else
-    {
-      AntUnassignChannelNumber(2);
-    }
-  } /* end BUTTON2 */
-
-  if(WasButtonPressed(BUTTON3))
-  {
-    ButtonAcknowledge(BUTTON3);
-    
-    for(u8 i = 0; i < 3; i++)
-    {
-      /* Manage channels */
-      if(AntRadioStatusChannel(i) == ANT_CLOSED)
-      {
-        AntOpenChannelNumber(i);
-      }
-      
-      if(AntRadioStatusChannel(i) == ANT_OPEN)
-      {
-        AntCloseChannelNumber(i);
-      }
-    }
-  } /* end BUTTON3 */
-  
-} /* end UserAppSM_Idle() */
-     
-
-/*-------------------------------------------------------------------------------------------------------------------*/
-/* Handle an error */
-static void UserAppSM_Error(void)          
-{
-  
-} /* end UserAppSM_Error() */
 
 
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -334,6 +151,212 @@ static void UserAppSM_FailedInit(void)
 } /* end UserAppSM_FailedInit() */
 
 
-/*--------------------------------------------------------------------------------------------------------------------*/
-/* End of File                                                                                                        */
-/*--------------------------------------------------------------------------------------------------------------------*/
+/*-------------------------------------------------------------------------------------------------------------------*/
+/* initialize */
+static void UserAppSM_IdentificationInitialize(void)
+{
+  static u8 au8ModeMessage[] = "Please choose your identification (0-referee,1-player):";
+  static u8 au8ChannelMessage[] = "Please input your channel (0 ~ 3):";
+  static u8 au8DeviceMessage[] = "Please input Device ID:";
+  static u8 au8ErrorMessage[] = "Warning! Invalid input";
+  
+  static u8 au8DebugInputBuffer[8];
+  static u8 u8DebugInputState = 0;
+  
+  static u8 u8CounterFor5ms = 0;
+  
+  
+  AntAssignChannelInfoType sChannelInfo;
+  u8CounterFor5ms++;
+  if(u8DebugInputState == 0)
+  {
+    DebugLineFeed();
+    DebugPrintf(au8ModeMessage);
+    DebugLineFeed();
+    u8DebugInputState++;
+  }
+  
+  if(u8DebugInputState == 2)
+  {
+    DebugLineFeed();
+    DebugPrintf(au8ChannelMessage);
+    DebugLineFeed();
+    u8DebugInputState++;   
+  }
+  
+  if(u8DebugInputState == 4)
+  {
+    DebugLineFeed();
+    DebugPrintf(au8DeviceMessage);
+    DebugLineFeed();
+    u8DebugInputState++;   
+  }
+  
+  if(u8DebugInputState == 9)
+  {
+    u8DebugInputState = 0;
+    u8CounterFor5ms = 0;
+    UserApp_StateMachine = UserAppSM_AssignChannel;
+  }
+ 
+  if(u8CounterFor5ms == 5)
+  {
+    u8CounterFor5ms = 0;
+    
+    if(DebugScanf(au8DebugInputBuffer))
+    {
+      switch(u8DebugInputState)
+      {
+        case 1:
+          if(au8DebugInputBuffer[0] == '0' || au8DebugInputBuffer[0] == '1')
+          {     
+            UserApp_u8ModeNumber = au8DebugInputBuffer[0] - 0x30;
+            if(UserApp_u8ModeNumber == 0)
+            {
+              u8DebugInputState++;
+              u8DebugInputState++;
+            }
+            u8DebugInputState++;
+          }
+          else
+          {
+            DebugLineFeed();
+            DebugPrintf(au8ErrorMessage);
+            DebugLineFeed();
+          }
+          break;
+        case 3:
+          if(au8DebugInputBuffer[0] >= 0x30 && au8DebugInputBuffer[0] <= 0x33)
+          {
+            UserApp_u8ChannelNumber = au8DebugInputBuffer[0] - 0x30;
+            u8DebugInputState++;         
+          }
+          else
+          {
+            DebugLineFeed();
+            DebugPrintf(au8ErrorMessage);
+            DebugLineFeed();
+          }
+          break;
+        case 5:
+          if(au8DebugInputBuffer[0] >= 0x30 && au8DebugInputBuffer[0] <= 0x39)
+          {
+            UserApp_u8DeviceIdHigh = au8DebugInputBuffer[0] - 0x30;
+            u8DebugInputState++;                    
+          }
+          else
+          {
+            DebugLineFeed();
+            DebugPrintf(au8ErrorMessage);
+            DebugLineFeed();
+          }
+          break;
+        case 6:          
+          if(au8DebugInputBuffer[0] >= 0x30 && au8DebugInputBuffer[0] <= 0x39)
+          {
+            UserApp_u8DeviceIdHigh = UserApp_u8DeviceIdHigh * 10 + au8DebugInputBuffer[0] - 0x30;
+            u8DebugInputState++;                    
+          }
+          else
+          {
+            DebugLineFeed();
+            DebugPrintf(au8ErrorMessage);
+            DebugLineFeed();
+            u8DebugInputState = 5;
+          }
+          break; 
+        case 7:
+          if(au8DebugInputBuffer[0] >= 0x30 && au8DebugInputBuffer[0] <= 0x39)
+          {
+            UserApp_u8DeviceIdLow = au8DebugInputBuffer[0] - 0x30;
+            u8DebugInputState++;                    
+          }
+          else
+          {
+            DebugLineFeed();
+            DebugPrintf(au8ErrorMessage);
+            DebugLineFeed();
+            u8DebugInputState = 5;
+          }
+          break;
+        case 8:          
+          if(au8DebugInputBuffer[0] >= 0x30 && au8DebugInputBuffer[0] <= 0x39)
+          {
+            UserApp_u8DeviceIdLow = UserApp_u8DeviceIdLow * 10 + au8DebugInputBuffer[0] - 0x30;
+            u8DebugInputState++;                    
+          }
+          else
+          {
+            DebugLineFeed();
+            DebugPrintf(au8ErrorMessage);
+            DebugLineFeed();
+            u8DebugInputState = 5;
+          }
+          break;   
+        default:
+          break;
+      }
+    }
+  }
+} /* end UserAppSM_IdentificationInitialize() */
+
+/*-------------------------------------------------------------------------------------------------------------------*/
+/* assign ANT */
+static void UserAppSM_AssignChannel(void)
+{
+} /* end UserAppSM_AssignChannel() */
+
+/*-------------------------------------------------------------------------------------------------------------------*/
+/* open ANT */
+static void UserAppSM_OpenChannel(void)
+{
+} /* end UserAppSM_OpenChannel() */
+
+
+/*-------------------------------------------------------------------------------------------------------------------*/
+/* pair to all players */
+static void UserAppSM_WaitForPairing(void)
+{
+}/* end UserAppSM_WaitForPairing() */
+
+/*-------------------------------------------------------------------------------------------------------------------*/
+/* referee launches the game */
+static void UserAppSM_LaunchGame(void)
+{
+}/* end UserAppSM_LaunchGame() */
+
+/*-------------------------------------------------------------------------------------------------------------------*/
+/* referee ends the game */
+static void UserAppSM_EndGame(void)
+{
+} /* end UserAppSM_EndGame() */
+
+/*-------------------------------------------------------------------------------------------------------------------*/
+/* players wait for the game */
+static void UserAppSM_WaitGameStart(void)
+{
+} /* end UserAppSM_WaitGameStart() */
+
+/*-------------------------------------------------------------------------------------------------------------------*/
+/* Wait for a message to be queued */
+static void UserAppSM_Idle(void)
+{  
+} /* end UserAppSM_Idle() */
+
+/*-------------------------------------------------------------------------------------------------------------------*/
+/* change the number */
+static void UserAppSM_MyTurn(void)
+{ 
+} /* end UserAppSM_MyTurn() */
+
+/*-------------------------------------------------------------------------------------------------------------------*/
+/* someone wins the game */
+static void UserAppSM_Congratulation(void)
+{
+} /* end UserAppSM_Congratulation() */
+
+/*-------------------------------------------------------------------------------------------------------------------*/
+/* Handle an error */
+static void UserAppSM_Error(void)          
+{  
+} /* end UserAppSM_Error() */
