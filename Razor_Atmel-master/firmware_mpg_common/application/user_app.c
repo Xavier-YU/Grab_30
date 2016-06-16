@@ -617,24 +617,390 @@ static void UserAppSM_EndGame(void)
 /* players wait for the game */
 static void UserAppSM_WaitGameStart(void)
 {
+  static u8 u8AcknowledgeMessage[] = {0x80,0x80,0x80,0x80,0x80,0x80,0x80,0x80};
+  static u8 au8WaitForConnectionMessage[]="Connectting...";
+  static u8 u8LCDDisplayIndex=0;
+  
+  /*Display the waiting message.*/
+  if(u8LCDDisplayIndex==0)
+  {
+    LCDClearChars(LINE1_START_ADDR,20);      
+    LCDMessage(LINE1_START_ADDR,au8WaitForConnectionMessage);
+    u8LCDDisplayIndex=1;
+  }
+  
+  /*If ant close,go back to initialization.*/
+  if(AntRadioStatusChannel(UserApp_u8ChannelNumber)!= ANT_OPEN)
+  {        
+    u8AcknowledgeMessage[CONTROL]=0x80;    
+    u8LCDDisplayIndex=0;
+    UserApp_StateMachine=UserAppSM_IdentificationInitialize;
+  }
+  
+  /*own channel number*/
+  u8AcknowledgeMessage[WHO_SEND_MESSAGE]=UserApp_u8ChannelNumber;
+  if( AntReadAppMessageBuffer() )
+  {
+  #if 0 
+    if(G_eAntApiCurrentMessageClass == ANT_TICK)
+    {    
+      u8 i = 0;
+         /* Parse u8LastState to update LED status */
+        switch (G_au8AntApiCurrentData[ANT_TICK_MSG_EVENT_CODE_INDEX])
+        {
+          /* If we are synced with a device, green is solid */
+          /*Return 0xff to master*/          
+          case RESPONSE_NO_ERROR:
+          {
+            LedOn(GREEN);
+            u8AcknowledgeMessage[CONTROL]=0xff;
+            AntQueueAcknowledgedMessage(UserApp_u8ChannelNumber,u8AcknowledgeMessage);
+            LCDClearChars(LINE1_START_ADDR,20);
+            LCDMessage(LINE1_START_ADDR,au8bConnecttedMessage);
+            bConnectFlag=TRUE;
+            break;
+          }
+
+          /* If we are paired but missing messages, blue blinks */
+          case EVENT_RX_FAIL:
+          {
+            u8AcknowledgeMessage[CONTROL]=0x80;
+            AntQueueAcknowledgedMessage(UserApp_u8ChannelNumber,u8AcknowledgeMessage);
+            break;
+          }
+
+          /* If we drop to search, LED is green */
+          case EVENT_RX_FAIL_GO_TO_SEARCH:
+          {
+            u8AcknowledgeMessage[CONTROL]=0x80;
+            AntQueueAcknowledgedMessage(UserApp_u8ChannelNumber,u8AcknowledgeMessage);
+            break;
+          }
+
+          /* If the search times out, the channel should automatically close */
+          case EVENT_RX_SEARCH_TIMEOUT:
+          {
+            u8AcknowledgeMessage[CONTROL]=0x80;
+            AntQueueAcknowledgedMessage(UserApp_u8ChannelNumber,u8AcknowledgeMessage);
+            DebugPrintf("Search timeout.\r\n");
+            break;
+          }
+
+          default:
+          {
+            
+            u8AcknowledgeMessage[CONTROL]=0x80;
+            DebugPrintf("Unexpected Event\r\n");
+            AntQueueAcknowledgedMessage(UserApp_u8ChannelNumber,u8AcknowledgeMessage);
+            break;
+          }
+        } /* end switch (G_au8AntApiCurrentData) */
+      }    
+    else 
+#endif
+
+  
+    if(G_eAntApiCurrentMessageClass == ANT_DATA)
+    {
+      /*Receive data response to master*/
+      LedOn(PURPLE);
+      u8AcknowledgeMessage[CONTROL]=0xff;
+      AntQueueAcknowledgedMessage(UserApp_u8ChannelNumber,u8AcknowledgeMessage);
+      /*When get the message from master,the game start.*/
+      if((G_au8AntApiCurrentData[WHO_SEND_MESSAGE]==0x00)&&(G_au8AntApiCurrentData[CONTROL]==0xFF))
+      {
+        if(u8LCDDisplayIndex==1)
+        {
+          LCDClearChars(LINE1_START_ADDR,20);     
+          u8LCDDisplayIndex++;
+          u8LCDDisplayIndex=2;
+        }
+        LedOn(GREEN);
+        u8AcknowledgeMessage[CONTROL]=0x80;
+        u8LCDDisplayIndex=0;
+        UserApp_StateMachine = UserAppSM_Idle;
+      }
+    }
+  }
 } /* end UserAppSM_WaitGameStart() */
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* Wait for a message to be queued */
 static void UserAppSM_Idle(void)
-{  
+{ 
+  static u8 au8CurrentPlayerMessage[]="Player x is playing.";
+  static u8 au8CurrentNumberMessage[]="Current number is:";
+  static u8 au8DisconnectionMessage[]="x is disconnectted.";
+  static u8 u8Number[3];
+  static u8 u8LCDDisplayIndex=0;
+
+  if( AntReadAppMessageBuffer() )
+  {
+    if(G_au8AntApiCurrentData[WHO_SEND_MESSAGE]==0x00 && G_eAntApiCurrentMessageClass == ANT_DATA)
+    {
+      /*When sb disconnectted,display on the tera term.*/
+      if(G_au8AntApiCurrentData[DISCONNECTION_PLAYER]&0xFC==0x00)
+      {
+        au8DisconnectionMessage[0]=G_au8AntApiCurrentData[DISCONNECTION_PLAYER]+0x30;
+        DebugLineFeed();
+        DebugPrintf(au8DisconnectionMessage);
+        DebugLineFeed();
+      }
+      
+      /*Show the current game information,current player and number.*/
+      if(G_au8AntApiCurrentData[CURRENT_PLAYER]!=0x80 && G_au8AntApiCurrentData[CURRENT_PLAYER]!=UserApp_u8ChannelNumber )
+      {
+        
+        if(u8LCDDisplayIndex==0)
+        {
+          u8LCDDisplayIndex++;
+          u8LCDDisplayIndex++;
+          au8CurrentPlayerMessage[7]=G_au8AntApiCurrentData[CURRENT_PLAYER]+0x30;
+          LCDClearChars(LINE1_START_ADDR,20);
+          LCDMessage(LINE1_START_ADDR,au8CurrentPlayerMessage);
+          
+        }
+        if(G_au8AntApiCurrentData[CURRENT_NUMBER]<30)
+        {
+          u8Number[0]=G_au8AntApiCurrentData[CURRENT_NUMBER]/10+0x30;
+          u8Number[1]=G_au8AntApiCurrentData[CURRENT_NUMBER]%10+0x30; 
+          u8Number[2]='\0';
+          if(u8LCDDisplayIndex==2)
+          {
+            LCDClearChars(LINE2_START_ADDR,20);
+            LCDMessage(LINE2_START_ADDR,au8CurrentNumberMessage);
+            LCDClearChars(LINE2_START_ADDR + 18, 2);
+            LCDMessage(LINE2_START_ADDR+18,u8Number);
+            u8LCDDisplayIndex--;
+            u8LCDDisplayIndex--;   
+          }
+        }
+      }
+      /*There is a winner.*/
+      if(G_au8AntApiCurrentData[WINNER]==0||G_au8AntApiCurrentData[WINNER]==1||G_au8AntApiCurrentData[WINNER]==2||G_au8AntApiCurrentData[WINNER]==3)
+      {
+        u8LCDDisplayIndex=0;
+        UserApp_u8WinnerPlayer=G_au8AntApiCurrentData[WINNER];
+        UserApp_StateMachine = UserAppSM_Congratulation;
+      }
+      /*It's my turn.*/
+      else if(G_au8AntApiCurrentData[CURRENT_PLAYER]==UserApp_u8ChannelNumber)
+      {
+        u8LCDDisplayIndex=0;
+        UserApp_StateMachine = UserAppSM_MyTurn;
+      } 
+    }
+  }
 } /* end UserAppSM_Idle() */
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* change the number */
 static void UserAppSM_MyTurn(void)
 { 
+  static u8 u8AcknowledgeMessage[] = {0x80,0x80,0x80,0x80,0x80,0x80,0x80,0x80};
+  static u8 au8YourTurnMessage[]="It's your turn.";
+  static u8 au8AddNumberMessage[]="You add x.";
+  static u8 au8CountdownMessage[3];
+  static u8 u8Number[3];
+  static u8 u8ButtonIndex=0;
+  static u16 u16Countdown1s=0;
+  static u8 u8Countdown10s=0; 
+  static u8 u8ReturnOneTime=0;
+  static u8 u8LCDDisplayIndex=0;
+  static u8 u8ConutDownIndex=0;
+  static u8 u8Frequency=0;
+  
+  /*Let master knonw you are ready*/
+  if(u8ReturnOneTime==0)
+  {
+    u8AcknowledgeMessage[WHO_SEND_MESSAGE]=UserApp_u8ChannelNumber;
+    u8AcknowledgeMessage[CONTROL]=0xff;
+    AntQueueAcknowledgedMessage(UserApp_u8ChannelNumber,u8AcknowledgeMessage);
+    u8ReturnOneTime=1;
+  }
+  if(u8LCDDisplayIndex==0)
+  {
+    LCDClearChars(LINE1_START_ADDR,20); 
+    LCDMessage(LINE1_START_ADDR,au8YourTurnMessage);
+    LCDClearChars(LINE2_START_ADDR+2,18); 
+    u8LCDDisplayIndex=2;
+  }
+  /*Display the countdown time.*/
+  u16Countdown1s++;
+  if(u16Countdown1s==1000 && u8ConutDownIndex==0)
+  {
+    u16Countdown1s=0;
+    u8Countdown10s++;
+    au8CountdownMessage[0]=(10-u8Countdown10s)/10+0x30;
+    au8CountdownMessage[1]=(10-u8Countdown10s)%10+0x30;
+    au8CountdownMessage[2]='\0';
+    LCDClearChars(LINE1_START_ADDR+15,5); 
+    LCDMessage(LINE1_START_ADDR+15,au8CountdownMessage);
+  }
+  
+  /*Add 1.*/
+  if( WasButtonPressed(BUTTON0) && u8ButtonIndex==0)
+  {
+    /* Be sure to acknowledge the button press */
+    ButtonAcknowledge(BUTTON0);
+    u8AcknowledgeMessage[RESPONSE]=0x01;
+    LCDClearChars(LINE2_START_ADDR,20); 
+    au8AddNumberMessage[8]=0x31;
+    LCDMessage(LINE2_START_ADDR+4,au8AddNumberMessage);
+    LCDClearChars(LINE1_START_ADDR+15,5); 
+    u8ConutDownIndex=1;
+    u8ButtonIndex=1;
+  }
+  
+  /*Add 2.*/
+  if( WasButtonPressed(BUTTON1) && u8ButtonIndex==0)
+  {
+    /* Be sure to acknowledge the button press */
+    ButtonAcknowledge(BUTTON1);
+    u8AcknowledgeMessage[RESPONSE]=0x02;
+    LCDClearChars(LINE2_START_ADDR,20); 
+    au8AddNumberMessage[8]=0x32;
+    LCDMessage(LINE2_START_ADDR+4,au8AddNumberMessage);
+    LCDClearChars(LINE1_START_ADDR+15,5); 
+    u8ConutDownIndex=1;
+    u8ButtonIndex=1;
+  }
+  
+  /*Time is over,add 2*/
+  if(u8Countdown10s==10&&u8ConutDownIndex==0)
+  {
+   u8ConutDownIndex=1;
+   u8AcknowledgeMessage[RESPONSE]=0xff;
+   LCDClearChars(LINE2_START_ADDR,20); 
+   au8AddNumberMessage[8]=0x32;
+   LCDMessage(LINE2_START_ADDR+4,au8AddNumberMessage);
+  }
+  u8Frequency++;
+  if(u8Frequency==50)
+  {
+    AntQueueAcknowledgedMessage(UserApp_u8ChannelNumber,u8AcknowledgeMessage);
+    u8Frequency=0;
+  }
+  
+  if(AntReadAppMessageBuffer())
+  {
+    if(G_au8AntApiCurrentData[WHO_SEND_MESSAGE]==0x00 && G_eAntApiCurrentMessageClass == ANT_DATA)
+    {
+      if(G_au8AntApiCurrentData[CURRENT_NUMBER]<= 30)
+        {
+          u8Number[0]=G_au8AntApiCurrentData[CURRENT_NUMBER]/10+0x30;
+          u8Number[1]=G_au8AntApiCurrentData[CURRENT_NUMBER]%10+0x30; 
+          u8Number[2]='\0';
+          if(u8LCDDisplayIndex==2)
+          {
+            LCDClearChars(LINE2_START_ADDR,3);
+            LCDMessage(LINE2_START_ADDR,u8Number);
+            u8LCDDisplayIndex=4;
+          }
+        }
+      /*Current is not 30.*/
+      if(G_au8AntApiCurrentData[WINNER]==0xFF)
+      {
+       u8AcknowledgeMessage[RESPONSE]=0x80;
+       u8AcknowledgeMessage[WHO_SEND_MESSAGE]=0x80;
+       u8AcknowledgeMessage[CONTROL]=0x80;
+       u8ButtonIndex=0;
+       u8Countdown10s=0; 
+       u8ReturnOneTime=0;
+       u8LCDDisplayIndex=0;
+       u8Frequency=0;
+       u8ConutDownIndex=0;
+       UserApp_StateMachine = UserAppSM_Idle;
+      }
+      /*Current is 30.*/
+      if(G_au8AntApiCurrentData[WINNER]==0||G_au8AntApiCurrentData[WINNER]==1||G_au8AntApiCurrentData[WINNER]==2||G_au8AntApiCurrentData[WINNER]==3)
+      {
+       UserApp_u8WinnerPlayer=G_au8AntApiCurrentData[WINNER];
+       u8AcknowledgeMessage[RESPONSE]=0x80;
+       u8AcknowledgeMessage[WHO_SEND_MESSAGE]=0x80;
+       u8AcknowledgeMessage[CONTROL]=0x80;
+       u8ButtonIndex=0;
+       u8Countdown10s=0; 
+       u8ReturnOneTime=0;
+       u8LCDDisplayIndex=0;
+       u8Frequency=0;
+       u8ConutDownIndex=0;
+       UserApp_StateMachine = UserAppSM_Congratulation;
+      }
+    }
+  }
 } /* end UserAppSM_MyTurn() */
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* someone wins the game */
 static void UserAppSM_Congratulation(void)
 {
+  static u8 au8WhoIsTheWinnerMessage[]="The winner is player";
+  static u8 au8ImTheWinnerMessage[]="You are the winner.";
+  static u16 u16CongratulationTime=0;
+  static u8 u8CongratulationTime1=0;
+  static u8 u8Winner[2];
+  static u8 u8LedIndex=0;
+  static u8 u8LCDDisplayIndex=0;
+
+  u16CongratulationTime++;
+  AntReadAppMessageBuffer();
+  
+  /*You are not the winner.*/
+  if(UserApp_u8WinnerPlayer!=UserApp_u8ChannelNumber)
+  {
+   if(UserApp_u8WinnerPlayer==0||UserApp_u8WinnerPlayer==1||UserApp_u8WinnerPlayer==2||UserApp_u8WinnerPlayer==3)
+   {
+     if(u8LCDDisplayIndex==0)
+     {
+       u8LCDDisplayIndex++;
+       u8LCDDisplayIndex++;
+       LCDClearChars(LINE1_START_ADDR,20); 
+       LCDClearChars(LINE2_START_ADDR,20);
+       LCDMessage(LINE1_START_ADDR,au8WhoIsTheWinnerMessage);
+       u8Winner[0]=G_au8AntApiCurrentData[WINNER]+0x30;
+       u8Winner[1]='\0';
+       LCDMessage(LINE2_START_ADDR,u8Winner);
+     }
+   }
+  }
+  /*You are the winner*/
+  else if(UserApp_u8WinnerPlayer==UserApp_u8ChannelNumber)
+  {
+    if(u8LCDDisplayIndex==0)
+    {
+     u8LCDDisplayIndex++;
+     LCDClearChars(LINE1_START_ADDR,20); 
+     LCDClearChars(LINE2_START_ADDR,20);
+     LCDMessage(LINE1_START_ADDR,au8ImTheWinnerMessage);
+    }
+   if(u8LedIndex==0)
+   {
+     LedBlink(RED,LED_2HZ);
+     LedBlink(YELLOW,LED_2HZ);
+     LedBlink(BLUE,LED_2HZ);
+     LedBlink(PURPLE,LED_2HZ);
+     u8LedIndex=1;
+   }
+  }
+  
+  if(u16CongratulationTime==500)
+  {
+    u8CongratulationTime1++;
+    u16CongratulationTime=0;
+  }
+  if(u8CongratulationTime1==10)
+  {
+    u8CongratulationTime1=0;
+    u8LedIndex=0;
+    UserApp_u8WinnerPlayer=9;
+    LedOff(RED);
+    LedOff(YELLOW);
+    LedOff(BLUE);
+    LedOff(PURPLE);
+    u8LCDDisplayIndex==0;
+    UserApp_StateMachine = UserAppSM_WaitGameStart;
+  }
 } /* end UserAppSM_Congratulation() */
 
 /*-------------------------------------------------------------------------------------------------------------------*/
