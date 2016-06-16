@@ -326,7 +326,7 @@ static void UserAppSM_IdentificationInitialize(void)
 /* assign ANT */
 static void UserAppSM_AssignChannel(void)
 {
-   static u8 u8AllAssignIndex = 0;
+  static u8 u8AllAssignIndex = 0;
    AntAssignChannelInfoType sChannelInfo;
    if(UserApp_u8ModeNumber == 0)
     {
@@ -338,21 +338,21 @@ static void UserAppSM_AssignChannel(void)
         {
           sChannelInfo.AntChannel = 0;
           sChannelInfo.AntChannelType = CHANNEL_TYPE_MASTER;
-          sChannelInfo.AntChannelPeriodHi = 0x00;
-          sChannelInfo.AntChannelPeriodLo = 0x21;
+          sChannelInfo.AntChannelPeriodHi = 0x0c;
+          sChannelInfo.AntChannelPeriodLo = 0xcd;
           
           sChannelInfo.AntDeviceIdHi = UserApp_u8DeviceIdHigh;
           sChannelInfo.AntDeviceIdLo = UserApp_u8DeviceIdLow;
           sChannelInfo.AntDeviceType = ANT_DEVICE_TYPE_DEFAULT;
           sChannelInfo.AntTransmissionType = ANT_TRANSMISSION_TYPE_DEFAULT;
           
-          sChannelInfo.AntFrequency = 50;
+          sChannelInfo.AntFrequency = 45;
           sChannelInfo.AntTxPower = ANT_TX_POWER_DEFAULT;
           sChannelInfo.AntNetwork = ANT_NETWORK_DEFAULT;
           
           for(u8 j = 0; j < ANT_NETWORK_NUMBER_BYTES; j++)
           {
-            sChannelInfo.AntNetworkKey[0] = ANT_DEFAULT_NETWORK_KEY;
+            sChannelInfo.AntNetworkKey[j] = ANT_DEFAULT_NETWORK_KEY;
           }
           if(AntAssignChannel(&sChannelInfo))
           {
@@ -374,21 +374,21 @@ static void UserAppSM_AssignChannel(void)
         {
           sChannelInfo.AntChannel = 1;
           sChannelInfo.AntChannelType = CHANNEL_TYPE_MASTER;
-          sChannelInfo.AntChannelPeriodHi = 0x00;
-          sChannelInfo.AntChannelPeriodLo = 0x21;
+          sChannelInfo.AntChannelPeriodHi = 0x0c;
+          sChannelInfo.AntChannelPeriodLo = 0xcd;
           
           sChannelInfo.AntDeviceIdHi = UserApp_u8DeviceIdHigh;
-          sChannelInfo.AntDeviceIdLo = UserApp_u8DeviceIdLow;
+          sChannelInfo.AntDeviceIdLo = UserApp_u8DeviceIdLow +1;
           sChannelInfo.AntDeviceType = ANT_DEVICE_TYPE_DEFAULT;
           sChannelInfo.AntTransmissionType = ANT_TRANSMISSION_TYPE_DEFAULT;
           
-          sChannelInfo.AntFrequency = 50;
+          sChannelInfo.AntFrequency = 45;
           sChannelInfo.AntTxPower = ANT_TX_POWER_DEFAULT;
           sChannelInfo.AntNetwork = ANT_NETWORK_DEFAULT;
           
           for(u8 j = 0; j < ANT_NETWORK_NUMBER_BYTES; j++)
           {
-            sChannelInfo.AntNetworkKey[1] = ANT_DEFAULT_NETWORK_KEY;
+            sChannelInfo.AntNetworkKey[j] = ANT_DEFAULT_NETWORK_KEY;
           }
           if(AntAssignChannel(&sChannelInfo))
           {
@@ -409,21 +409,21 @@ static void UserAppSM_AssignChannel(void)
         {
           sChannelInfo.AntChannel = 2;
           sChannelInfo.AntChannelType = CHANNEL_TYPE_MASTER;
-          sChannelInfo.AntChannelPeriodHi = 0x00;
-          sChannelInfo.AntChannelPeriodLo = 0x21;
+          sChannelInfo.AntChannelPeriodHi = 0x0c;
+          sChannelInfo.AntChannelPeriodLo = 0xcd;
           
           sChannelInfo.AntDeviceIdHi = UserApp_u8DeviceIdHigh;
-          sChannelInfo.AntDeviceIdLo = UserApp_u8DeviceIdLow;
+          sChannelInfo.AntDeviceIdLo = UserApp_u8DeviceIdLow+2;
           sChannelInfo.AntDeviceType = ANT_DEVICE_TYPE_DEFAULT;
           sChannelInfo.AntTransmissionType = ANT_TRANSMISSION_TYPE_DEFAULT;
           
-          sChannelInfo.AntFrequency = 50;
+          sChannelInfo.AntFrequency = 45;
           sChannelInfo.AntTxPower = ANT_TX_POWER_DEFAULT;
           sChannelInfo.AntNetwork = ANT_NETWORK_DEFAULT;
           
           for(u8 j = 0; j < ANT_NETWORK_NUMBER_BYTES; j++)
           {
-            sChannelInfo.AntNetworkKey[2] = ANT_DEFAULT_NETWORK_KEY;
+            sChannelInfo.AntNetworkKey[j] = ANT_DEFAULT_NETWORK_KEY;
           }
           if(AntAssignChannel(&sChannelInfo))
           {
@@ -445,21 +445,21 @@ static void UserAppSM_AssignChannel(void)
         {
           sChannelInfo.AntChannel = 3;
           sChannelInfo.AntChannelType = CHANNEL_TYPE_MASTER;
-          sChannelInfo.AntChannelPeriodHi = 0x00;
-          sChannelInfo.AntChannelPeriodLo = 0x21;
+          sChannelInfo.AntChannelPeriodHi = 0x0c;
+          sChannelInfo.AntChannelPeriodLo = 0xcd;
           
           sChannelInfo.AntDeviceIdHi = UserApp_u8DeviceIdHigh;
-          sChannelInfo.AntDeviceIdLo = UserApp_u8DeviceIdLow;
+          sChannelInfo.AntDeviceIdLo = UserApp_u8DeviceIdLow+3;
           sChannelInfo.AntDeviceType = ANT_DEVICE_TYPE_DEFAULT;
           sChannelInfo.AntTransmissionType = ANT_TRANSMISSION_TYPE_DEFAULT;
           
-          sChannelInfo.AntFrequency = 50;
+          sChannelInfo.AntFrequency = 45;
           sChannelInfo.AntTxPower = ANT_TX_POWER_DEFAULT;
           sChannelInfo.AntNetwork = ANT_NETWORK_DEFAULT;
           
           for(u8 j = 0; j < ANT_NETWORK_NUMBER_BYTES; j++)
           {
-            sChannelInfo.AntNetworkKey[3] = ANT_DEFAULT_NETWORK_KEY;
+            sChannelInfo.AntNetworkKey[j] = ANT_DEFAULT_NETWORK_KEY;
           }
           if(AntAssignChannel(&sChannelInfo))
           {
@@ -482,14 +482,14 @@ static void UserAppSM_AssignChannel(void)
           sChannelInfo.AntChannel = UserApp_u8ChannelNumber;
           sChannelInfo.AntChannelType = CHANNEL_TYPE_MASTER;
           sChannelInfo.AntChannelPeriodHi = 0x00;
-          sChannelInfo.AntChannelPeriodLo = 0x21;
+          sChannelInfo.AntChannelPeriodLo = 0x64;
           
           sChannelInfo.AntDeviceIdHi = UserApp_u8DeviceIdHigh;
           sChannelInfo.AntDeviceIdLo = UserApp_u8DeviceIdLow;
           sChannelInfo.AntDeviceType = ANT_DEVICE_TYPE_DEFAULT;
           sChannelInfo.AntTransmissionType = ANT_TRANSMISSION_TYPE_DEFAULT;
           
-          sChannelInfo.AntFrequency = 50;
+          sChannelInfo.AntFrequency = 45;
           sChannelInfo.AntTxPower = ANT_TX_POWER_DEFAULT;
           sChannelInfo.AntNetwork = ANT_NETWORK_DEFAULT;
           
@@ -535,6 +535,7 @@ static void UserAppSM_WaitOpenChannel(void)
        UserApp_StateMachine = UserAppSM_OpenChannel;        
     }
   }
+
 
 
 
@@ -594,6 +595,7 @@ static void UserAppSM_OpenChannel(void)
     }
   }
 } /* end UserAppSM_OpenChannel() */
+
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* pair to all players */
