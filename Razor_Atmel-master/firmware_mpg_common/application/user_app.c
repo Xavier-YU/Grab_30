@@ -601,12 +601,288 @@ static void UserAppSM_OpenChannel(void)
 /* pair to all players */
 static void UserAppSM_WaitForPairing(void)
 {
+  static u8 u8WaitPlayerIndex = 0;
+  static u8 au8PlayerConnectMessage[] = "0 is connecting";
+  static u8 au8AllConnectMessage[] = "All players are connected";
+  static bool bStartGame = FALSE;
+  static bool bWaitFlag = TRUE;
+  static bool bFinishFlag = TRUE;
+  static u8 u8CounterFor100ms = 0;
+  
+  u8CounterFor100ms++;
+
+
+#if 0
+  AntReadAppMessageBuffer();
+#endif
+  
+  /* after all players are connected to the referee , press BUUTON0 to start the game */
+
+  if(WasButtonPressed(BUTTON0) && u8WaitPlayerIndex == 4)
+  {
+    ButtonAcknowledge(BUTTON0);
+    bStartGame = TRUE;
+  }
+     
+  /* confirm the connection one by one , and diplay the situation on the LCD*/
+  if(u8WaitPlayerIndex == 0 && bWaitFlag)
+  {
+    bWaitFlag = FALSE;
+    LCDClearChars(LINE2_START_ADDR , 20);
+    LCDMessage(LINE2_START_ADDR,au8PlayerConnectMessage);    
+  }
+  
+#if 1
+  if(AntReadAppMessageBuffer() && u8WaitPlayerIndex < 4)
+  {
+    if(G_eAntApiCurrentMessageClass == ANT_DATA && G_au8AntApiCurrentData[WHO_SEND_MESSAGE] == u8WaitPlayerIndex && G_au8AntApiCurrentData[CONTROL] == 0xff )
+    {
+      if(u8WaitPlayerIndex++ < 3)
+      {
+        au8PlayerConnectMessage[0] = u8WaitPlayerIndex + 0x30 ;
+        LCDClearChars(LINE2_START_ADDR , 20);
+        LCDMessage(LINE2_START_ADDR,au8PlayerConnectMessage);
+      }
+    }
+  }
+  
+  if(u8WaitPlayerIndex == 4 && bFinishFlag)
+  {
+      LCDClearChars(LINE2_START_ADDR , 20);
+      LCDMessage(LINE2_START_ADDR,au8AllConnectMessage); 
+      bFinishFlag = FALSE;
+  }
+  #endif
+  
+  if(bStartGame)
+  {
+    /*change CONTROL to inform players that game starts*/
+    UserApp_au8GameSituationMessage[CONTROL] = 0xff;
+  }
+  else
+  {
+    UserApp_au8GameSituationMessage[CONTROL] = 0x80;
+  }
+  if(u8CounterFor100ms == 100)
+  {
+    u8CounterFor100ms = 0;
+
+    AntQueueBroadcastMessage(0,UserApp_au8GameSituationMessage); 
+    AntQueueBroadcastMessage(1,UserApp_au8GameSituationMessage);
+    AntQueueBroadcastMessage(2,UserApp_au8GameSituationMessage); 
+    AntQueueBroadcastMessage(3,UserApp_au8GameSituationMessage);  
+  }
+  
+  
+    /*bStartGame is TRUE , start the game and prepare some variations for the possible new game*/
+  if(bStartGame && u8CounterFor100ms == 0)
+  {
+    bStartGame = FALSE;
+    bWaitFlag = TRUE;
+    bFinishFlag = TRUE;
+    u8CounterFor100ms = 0;
+    u8WaitPlayerIndex = 0;
+    au8PlayerConnectMessage[0] = 0x30;
+    UserApp_StateMachine = UserAppSM_LaunchGame;
+  }
+
 }/* end UserAppSM_WaitForPairing() */
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* referee launches the game */
 static void UserAppSM_LaunchGame(void)
 {
+   static u8 u8CurrentPlayerIndex = 0;
+  static bool bOnlineFlag = FALSE;
+  static u8 u8WinnerFlag = 0;
+  static bool bNewGameFlag = TRUE;
+  static u8 u8CurrentNumber = 0;
+  static u32 u32TryConnectionTime;
+  static u32 u32WaitResponseTime;
+  static u8 au8DisconnectMessage[] = "Player x is disconnected";
+  static u8 au8CurrentPlayerMessage[] = "Player x is playing";
+  static u8 au8CurrentNumberMessage[] = "Current Number is:xx";
+  static u8 u8CounterFor100ms = 0;
+  
+  u8CounterFor100ms++;
+  
+  if(bNewGameFlag)
+  {
+    u32TryConnectionTime = G_u32SystemTime1s;
+    bNewGameFlag = FALSE;
+  }
+  
+
+  
+  if(!bOnlineFlag)
+  {
+    /* each player will have 10 seconds to respond to the referee , otherwise current player is disconnected*/
+    if(u8CounterFor100ms == 100 && G_u32SystemTime1s - u32TryConnectionTime > 10)
+    {
+      UserApp_au8GameSituationMessage[DISCONNECTION_PLAYER] = u8CurrentPlayerIndex;
+      au8DisconnectMessage[7] = u8CurrentPlayerIndex + 0x30;
+      DebugLineFeed();
+      DebugPrintf(au8DisconnectMessage);
+      DebugLineFeed();
+      if(u8CurrentPlayerIndex < 3)
+      {
+        u8CurrentPlayerIndex++;
+      }
+      else
+      {
+        u8CurrentPlayerIndex = 0;
+      }
+      u32TryConnectionTime = G_u32SystemTime1s;
+    }
+    else if(AntReadAppMessageBuffer() && G_eAntApiCurrentMessageClass == ANT_DATA && G_au8AntApiCurrentData[WHO_SEND_MESSAGE] == u8CurrentPlayerIndex && G_au8AntApiCurrentData[CONTROL] == 0xff )
+    {
+      bOnlineFlag = TRUE;
+      u32WaitResponseTime = G_u32SystemTime1s;
+    }
+  }
+  else
+  {
+    /*wait for the operation of current player for 15s , otherwise add 2 automatically*/
+    if(u8CounterFor100ms == 100 && G_u32SystemTime1s - u32WaitResponseTime > 15)
+    {
+      if(u8CurrentNumber + 2 >= 30)
+      {
+        u8CurrentNumber = 30;
+        u8WinnerFlag = 2;
+        u8CurrentNumber = 0;
+      }
+      else
+      {
+        u8CurrentNumber++;
+        u8CurrentNumber++;  
+        u8WinnerFlag = 1;
+        if(u8CurrentPlayerIndex < 3)
+        {
+          u8CurrentPlayerIndex++;
+        }
+        else
+        {
+          u8CurrentPlayerIndex = 0;
+        }
+        u32TryConnectionTime = G_u32SystemTime1s;
+        bOnlineFlag = FALSE;
+      }
+    }
+    else if(AntReadAppMessageBuffer())
+    {
+      if(G_eAntApiCurrentMessageClass == ANT_DATA && G_au8AntApiCurrentData[WHO_SEND_MESSAGE] == u8CurrentPlayerIndex)
+      {
+        
+        /*change the number according to what current player does*/
+        switch(G_au8AntApiCurrentData[RESPONSE])
+        {
+          
+          /*player chooses to plus 1*/
+          case 0x01:
+            if(u8CurrentNumber + 1 >= 30)
+            {
+              u8CurrentNumber = 30;
+              u8WinnerFlag = 2;
+              u8CurrentNumber = 0;
+            }
+            else
+            {
+              u8CurrentNumber++;
+              u8WinnerFlag = 1;
+              if(u8CurrentPlayerIndex < 3)
+              {
+                u8CurrentPlayerIndex++;
+              }
+              else
+              {
+                u8CurrentPlayerIndex = 0;
+              }
+              u32TryConnectionTime = G_u32SystemTime1s;
+              bOnlineFlag = FALSE;
+            }
+            break;
+            
+          /*player chooses to plus 2 , or player fails to make a decision in required time(10s)*/
+          case 0x02:
+          case 0xff:
+            if(u8CurrentNumber + 2 >= 30)
+            {
+              u8CurrentNumber = 30;
+              u8WinnerFlag = 2;
+              u8CurrentNumber = 0;
+            }
+            else
+            {
+              u8CurrentNumber++;
+              u8CurrentNumber++;  
+              u8WinnerFlag = 1;
+              if(u8CurrentPlayerIndex < 3)
+              {
+                u8CurrentPlayerIndex++;
+              }
+              else
+              {
+                u8CurrentPlayerIndex = 0;
+              }
+              u32TryConnectionTime = G_u32SystemTime1s;
+              bOnlineFlag = FALSE;
+            }
+            break;
+          default:
+            break;           
+        }
+      }
+    }
+  }
+  
+  if(u8WinnerFlag == 0)
+  {
+    UserApp_au8GameSituationMessage[WINNER] = 0x80;
+  }
+  if(u8WinnerFlag == 1)
+  {
+    UserApp_au8GameSituationMessage[WINNER] = 0xff;
+  }
+  if(u8WinnerFlag == 2)
+  { 
+    UserApp_au8GameSituationMessage[WINNER] = u8CurrentPlayerIndex;
+  }
+    
+
+  if(u8CounterFor100ms == 100)
+  {
+    u8CounterFor100ms = 0;    
+    UserApp_au8GameSituationMessage[CURRENT_PLAYER] = u8CurrentPlayerIndex;
+    UserApp_au8GameSituationMessage[CURRENT_NUMBER] = u8CurrentNumber; 
+    au8CurrentPlayerMessage[7] = u8CurrentPlayerIndex + 0x30;
+    au8CurrentNumberMessage[18] = u8CurrentNumber / 10 + 0x30;
+    au8CurrentNumberMessage[19] = u8CurrentNumber % 10 + 0x30;
+    LCDMessage(LINE1_START_ADDR , au8CurrentPlayerMessage);
+    LCDMessage(LINE2_START_ADDR , au8CurrentNumberMessage);
+    AntQueueBroadcastMessage(0,UserApp_au8GameSituationMessage);  
+    AntQueueBroadcastMessage(1,UserApp_au8GameSituationMessage);  
+    AntQueueBroadcastMessage(2,UserApp_au8GameSituationMessage);  
+    AntQueueBroadcastMessage(3,UserApp_au8GameSituationMessage);  
+    UserApp_au8GameSituationMessage[DISCONNECTION_PLAYER] = 0x80;
+    UserApp_au8GameSituationMessage[WINNER] = 0x80;
+    u8WinnerFlag = 0;
+  }
+  
+  /*when someone wins , referee should end the game*/
+  if(u8WinnerFlag == 2 && u8CounterFor100ms == 0)
+  {
+    u8CurrentPlayerIndex = 0;
+    bOnlineFlag = FALSE;
+    u8WinnerFlag = 0;
+    bNewGameFlag = TRUE;
+    u8CurrentNumber = 0;
+    u8CounterFor100ms = 0;
+    UserApp_au8GameSituationMessage[CURRENT_PLAYER] = 0x80;
+    UserApp_au8GameSituationMessage[CURRENT_NUMBER] = 0x80;
+    UserApp_au8GameSituationMessage[WINNER] = 0x80;
+    UserApp_au8GameSituationMessage[DISCONNECTION_PLAYER] = 0x80;
+    UserApp_StateMachine = UserAppSM_EndGame;
+  }
 }/* end UserAppSM_LaunchGame() */
 
 /*-------------------------------------------------------------------------------------------------------------------*/
@@ -1009,4 +1285,5 @@ static void UserAppSM_Congratulation(void)
 /* Handle an error */
 static void UserAppSM_Error(void)          
 {  
+    LedOn(RED);
 } /* end UserAppSM_Error() */
